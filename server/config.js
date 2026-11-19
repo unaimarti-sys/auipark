@@ -6,7 +6,7 @@ export const config = {
   // (o POSTGRES_URL si las variables las pone la integración Supabase ↔ Vercel)
   databaseUrl: env.DATABASE_URL || env.POSTGRES_URL,
   databaseSsl: env.DATABASE_SSL !== 'false',
-  supabaseUrl: env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL,
+  supabaseUrl: env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || 'https://qlkwgwpkvflcwepmezbw.supabase.co',
   // Clave secreta (sb_secret_...): SOLO en el servidor, nunca en el frontend
   supabaseSecretKey: env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY,
   // Geoapify (importación de parkings reales y buscador de direcciones)

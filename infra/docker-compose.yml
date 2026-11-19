@@ -1,0 +1,91 @@
+# =====================================================================
+#  AuiPark · Infraestructura en Docker
+#  - apache:  Apache2 + PHP 8.3 + SSL autofirmado (página de estado y proxy /app/ → Vercel)
+#  - backup:  pg_dump diario de la base de datos de Supabase
+#  - zabbix:  Zabbix 7.0 LTS (servidor + web + agente + su base de datos)
+#  Arranque:  cp .env.example .env  (rellenar)  →  docker compose up -d --build
+# =====================================================================
+name: auipark-infra
+
+services:
+  apache:
+    build: ./apache
+    container_name: auipark-apache
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      VERCEL_HOST: ${VERCEL_HOST}
+      ZABBIX_URL: http://localhost:${ZABBIX_WEB_PORT:-8081}
+      TZ: Europe/Madrid
+    volumes:
+      - ./backups:/backups:ro
+    restart: unless-stopped
+
+  backup:
+    build: ./backup
+    container_name: auipark-backup
+    environment:
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL}
+      BACKUP_TIME: "03:30"
+      RETENTION_DAYS: "7"
+      RUN_ON_START: "true"
+      TZ: Europe/Madrid
+    volumes:
+      - ./backups:/backups
+    restart: unless-stopped
+
+  zabbix-db:
+    image: postgres:16-alpine
+    container_name: auipark-zabbix-db
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD}
+      POSTGRES_DB: zabbix
+    volumes:
+      - zabbix-db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:alpine-7.0-latest
+    container_name: auipark-zabbix-server
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD}
+      POSTGRES_DB: zabbix
+    ports:
+      - "10051:10051"
+    depends_on:
+      - zabbix-db
+    restart: unless-stopped
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-7.0-latest
+    container_name: auipark-zabbix-web
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD}
+      POSTGRES_DB: zabbix
+      PHP_TZ: Europe/Madrid
+    ports:
+      - "${ZABBIX_WEB_PORT:-8081}:8080"
+    depends_on:
+      - zabbix-server
+    restart: unless-stopped
+
+  zabbix-agent:
+    image: zabbix/zabbix-agent2:alpine-7.0-latest
+    container_name: auipark-zabbix-agent
+    hostname: zabbix-agent
+    environment:
+      ZBX_HOSTNAME: "Zabbix server"
+      ZBX_SERVER_HOST: zabbix-server
+    depends_on:
+      - zabbix-server
+    restart: unless-stopped
+
+volumes:
+  zabbix-db:

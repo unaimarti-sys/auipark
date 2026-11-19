@@ -6,8 +6,20 @@ pg.types.setTypeParser(1700, (v) => (v === null ? null : Number(v)));
 pg.types.setTypeParser(20, (v) => (v === null ? null : Number(v))); // bigint
 
 // En serverless cada instancia mantiene pocas conexiones; el pooler de Supabase hace el resto
+// Quitamos sslmode/supa de la URL (las añade la integración de Vercel): el SSL se configura abajo
+function cleanUrl(url) {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    ['sslmode', 'supa', 'pgbouncer'].forEach((k) => u.searchParams.delete(k));
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 export const pool = new pg.Pool({
-  connectionString: config.databaseUrl,
+  connectionString: cleanUrl(config.databaseUrl),
   ssl: config.databaseSsl ? { rejectUnauthorized: false } : false,
   max: 3,
   idleTimeoutMillis: 10000,

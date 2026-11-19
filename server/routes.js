@@ -36,6 +36,7 @@ r.patch('/empleado/reservations/:code/salida', empleado, handle(Empleado.registe
 // Administración
 r.get('/admin/stats', admin, handle(Admin.stats));
 r.get('/admin/parkings', admin, handle(Admin.parkings));
+r.post('/admin/parkings/import', admin, handle(Admin.importParkings));
 r.post('/admin/parkings', admin, handle(Admin.createParking));
 r.put('/admin/parkings/:id', admin, handle(Admin.updateParking));
 r.delete('/admin/parkings/:id', admin, handle(Admin.deleteParking));

@@ -3,6 +3,7 @@ import { HttpError } from '../errors.js';
 import * as Parkings from '../models/parking.model.js';
 import * as Reservations from '../models/reservation.model.js';
 import * as Nominatim from '../services/nominatim.js';
+import * as Geoapify from '../services/geoapify.js';
 
 /** GET /api/health — estado de la API y de la base de datos (lo consultan Zabbix y Apache) */
 export async function health(_req, res) {
@@ -63,5 +64,7 @@ export async function services(_req, res) {
 export async function geoSearch(req, res) {
   const q = String(req.query.q || '').trim();
   if (q.length < 3) throw new HttpError(400, 'Escribe al menos 3 caracteres');
-  res.json({ results: await Nominatim.search(q) });
+  // Geoapify como buscador principal; si falla, Nominatim (OpenStreetMap)
+  const results = await Geoapify.geocode(q).catch(() => Nominatim.search(q));
+  res.json({ results });
 }

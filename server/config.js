@@ -8,6 +8,8 @@ export const config = {
   supabaseUrl: env.SUPABASE_URL,
   // Clave secreta (sb_secret_...): SOLO en el servidor, nunca en el frontend
   supabaseSecretKey: env.SUPABASE_SECRET_KEY,
+  // Geoapify (importación de parkings reales y buscador de direcciones)
+  geoapifyKey: env.GEOAPIFY_API_KEY || '1e5878597d5c45b78db4ee1910d3a776',
   nodeEnv: env.NODE_ENV || 'development',
 };
 

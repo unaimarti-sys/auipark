@@ -5,6 +5,7 @@ import { config } from '../config.js';
 import * as Parkings from '../models/parking.model.js';
 import * as Reservations from '../models/reservation.model.js';
 import * as Users from '../models/user.model.js';
+import * as Geoapify from '../services/geoapify.js';
 
 /** GET /api/admin/stats */
 export async function stats(_req, res) {
@@ -150,4 +151,29 @@ export async function updateReservationStatus(req, res) {
   const { status } = req.body;
   if (!['completed', 'cancelled'].includes(status)) throw new HttpError(422, 'Estado no válido');
   res.json({ reservation: await Reservations.changeStatus(req.params.code, status) });
+}
+
+/** POST /api/admin/parkings/import { city, radius? } — importa parkings reales de Geoapify sin duplicar */
+export async function importParkings(req, res) {
+  const city = String(req.body?.city || '').trim();
+  const radius = Math.min(Math.max(Number(req.body?.radius) || 3000, 500), 10000);
+  const price = Math.min(Math.max(Number(req.body?.price) || 2.5, 0.5), 20);
+  if (city.length < 2) throw new HttpError(422, 'Indica una ciudad', { city: 'Obligatorio' });
+  const [place] = await Geoapify.geocode(city);
+  if (!place) throw new HttpError(404, `No se ha encontrado «${city}»`);
+  const found = await Geoapify.parkingsNear(place.lat, place.lon, radius);
+  let created = 0, skipped = 0;
+  for (const p of found) {
+    // Duplicado = otro parking a menos de ~50 m
+    const dup = await query(
+      'select 1 from parkings where abs(lat - $1) < 0.0005 and abs(lon - $2) < 0.0005 limit 1', [p.lat, p.lon]);
+    if (dup.rows.length) { skipped++; continue; }
+    await query(
+      `insert into parkings (nombre, direccion, ciudad, lat, lon, tipo, precio_hora, capacidad, disponibles, abierto_24h, horario)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10)`,
+      [p.nombre.length >= 3 ? p.nombre : `Parking ${place.city || city}`, p.direccion, p.ciudad || place.city || city,
+        p.lat, p.lon, p.tipo, price, p.capacidad, p.abierto_24h, p.horario]);
+    created++;
+  }
+  res.status(201).json({ city: place.city || city, found: found.length, created, skipped });
 }

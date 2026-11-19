@@ -276,6 +276,24 @@ function ParkingsTab() {
   const [editing, setEditing] = useState(null);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
+  const [importCity, setImportCity] = useState('');
+  const [importing, setImporting] = useState(false);
+
+  const importFromGeoapify = async (e) => {
+    e.preventDefault();
+    if (!importCity.trim()) return;
+    setImporting(true); setError(null); setMessage(null);
+    try {
+      const r = await api.post('/admin/parkings/import', { city: importCity.trim() });
+      setMessage(`Geoapify · ${r.city}: ${r.found} encontrados, ${r.created} importados, ${r.skipped} ya existían`);
+      setImportCity('');
+      load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -323,6 +341,16 @@ function ParkingsTab() {
           </button>
         </div>
       </div>
+
+      <form className="panel-toolbar" onSubmit={importFromGeoapify}>
+        <div className="panel-search">
+          <Search size={15} />
+          <input placeholder="Importar parkings reales de una ciudad (Geoapify), p. ej. Tarragona" value={importCity} onChange={(e) => setImportCity(e.target.value)} />
+        </div>
+        <button type="submit" className="btn btn--ghost btn--sm" disabled={importing || !importCity.trim()}>
+          {importing ? 'Importando…' : 'Importar de Geoapify'}
+        </button>
+      </form>
 
       {message && <p className="form-success">{message}</p>}
       {error && <p className="form-alert">{error}</p>}
